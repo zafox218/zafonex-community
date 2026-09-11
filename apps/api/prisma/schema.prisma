@@ -1,0 +1,461 @@
+// ZAFONEX Community — data model
+// Three storefronts (products, services, courses) over one wallet and one
+// double-entry ledger. Money never moves without a balanced transaction.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------ people --
+
+enum Role {
+  USER
+  SELLER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  passwordHash  String
+  role          Role      @default(USER)
+  displayName   String?
+  headline      String?
+  bio           String?
+  avatarUrl     String?
+  country       String?
+  isVerified    Boolean   @default(false)
+  isBanned      Boolean   @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  products      Product[]
+  services      Service[]
+  courses       Course[]
+  orders        Order[]        @relation("BuyerOrders")
+  enrollments   Enrollment[]
+  reviews       Review[]
+  accounts      LedgerAccount[]
+  deposits      Deposit[]
+  withdrawals   Withdrawal[]
+  sessions      RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- catalogue --
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  icon      String?
+  products  Product[]
+  services  Service[]
+  courses   Course[]
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+/// Digital marketplace item — the Gumroad half.
+model Product {
+  id           String        @id @default(cuid())
+  sellerId     String
+  categoryId   String?
+  title        String
+  slug         String        @unique
+  summary      String
+  description  String
+  priceUsdt    Decimal       @db.Decimal(18, 6)
+  coverUrl     String?
+  fileKey      String?
+  fileSize     Int?
+  status       ListingStatus @default(DRAFT)
+  salesCount   Int           @default(0)
+  ratingAvg    Float         @default(0)
+  ratingCount  Int           @default(0)
+  tags         String[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  seller       User          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+  reviews      Review[]
+
+  @@index([status, createdAt])
+  @@index([sellerId])
+}
+
+/// Freelance gig — the Fiverr half. Sold in tiered packages.
+model Service {
+  id           String        @id @default(cuid())
+  sellerId     String
+  categoryId   String?
+  title        String
+  slug         String        @unique
+  summary      String
+  description  String
+  coverUrl     String?
+  status       ListingStatus @default(DRAFT)
+  ordersCount  Int           @default(0)
+  ratingAvg    Float         @default(0)
+  ratingCount  Int           @default(0)
+  tags         String[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  seller       User             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category     Category?        @relation(fields: [categoryId], references: [id])
+  packages     ServicePackage[]
+  orderItems   OrderItem[]
+  reviews      Review[]
+
+  @@index([status, createdAt])
+  @@index([sellerId])
+}
+
+enum PackageTier {
+  BASIC
+  STANDARD
+  PREMIUM
+}
+
+model ServicePackage {
+  id            String      @id @default(cuid())
+  serviceId     String
+  tier          PackageTier
+  name          String
+  description   String
+  priceUsdt     Decimal     @db.Decimal(18, 6)
+  deliveryDays  Int
+  revisions     Int         @default(1)
+  features      String[]
+
+  service       Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+
+  @@unique([serviceId, tier])
+}
+
+/// Online course — the Udemy half.
+model Course {
+  id            String        @id @default(cuid())
+  instructorId  String
+  categoryId    String?
+  title         String
+  slug          String        @unique
+  summary       String
+  description   String
+  priceUsdt     Decimal       @db.Decimal(18, 6)
+  coverUrl      String?
+  level         String        @default("beginner")
+  language      String        @default("en")
+  status        ListingStatus @default(DRAFT)
+  ratingAvg     Float         @default(0)
+  ratingCount   Int           @default(0)
+  tags          String[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  instructor    User          @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  category      Category?     @relation(fields: [categoryId], references: [id])
+  modules       Module[]
+  enrollments   Enrollment[]
+  orderItems    OrderItem[]
+  reviews       Review[]
+
+  @@index([status, createdAt])
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  courseId  String
+  title     String
+  position  Int
+  lessons   Lesson[]
+
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, position])
+}
+
+model Lesson {
+  id          String  @id @default(cuid())
+  moduleId    String
+  title       String
+  position    Int
+  durationSec Int     @default(0)
+  videoUrl    String?
+  content     String?
+  isPreview   Boolean @default(false)
+
+  module      Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress    LessonProgress[]
+
+  @@unique([moduleId, position])
+}
+
+model Enrollment {
+  id           String   @id @default(cuid())
+  userId       String
+  courseId     String
+  progressPct  Float    @default(0)
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course       Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress     LessonProgress[]
+
+  @@unique([userId, courseId])
+}
+
+model LessonProgress {
+  id            String   @id @default(cuid())
+  enrollmentId  String
+  lessonId      String
+  completed     Boolean  @default(false)
+  secondsWatched Int     @default(0)
+  updatedAt     DateTime @updatedAt
+
+  enrollment    Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson        Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+}
+
+// -------------------------------------------------------------------- sales --
+
+enum OrderStatus {
+  PENDING
+  PAID
+  IN_PROGRESS
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  DISPUTED
+}
+
+enum ItemKind {
+  PRODUCT
+  SERVICE
+  COURSE
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  reference     String      @unique
+  buyerId       String
+  status        OrderStatus @default(PENDING)
+  subtotalUsdt  Decimal     @db.Decimal(18, 6)
+  feeUsdt       Decimal     @db.Decimal(18, 6)
+  totalUsdt     Decimal     @db.Decimal(18, 6)
+  note          String?
+  paidAt        DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  buyer         User        @relation("BuyerOrders", fields: [buyerId], references: [id])
+  items         OrderItem[]
+  transactions  LedgerTransaction[]
+
+  @@index([buyerId, status])
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  kind         ItemKind
+  sellerId     String
+  productId    String?
+  serviceId    String?
+  packageId    String?
+  courseId     String?
+  title        String
+  unitUsdt     Decimal  @db.Decimal(18, 6)
+  quantity     Int      @default(1)
+  deliveryDays Int?
+  dueAt        DateTime?
+  deliveredAt  DateTime?
+
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product?        @relation(fields: [productId], references: [id])
+  service      Service?        @relation(fields: [serviceId], references: [id])
+  package      ServicePackage? @relation(fields: [packageId], references: [id])
+  course       Course?         @relation(fields: [courseId], references: [id])
+
+  @@index([orderId])
+  @@index([sellerId])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  authorId   String
+  rating     Int
+  body       String
+  productId  String?
+  serviceId  String?
+  courseId   String?
+  createdAt  DateTime @default(now())
+
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  product    Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  service    Service? @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  course     Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([serviceId])
+  @@index([courseId])
+}
+
+// ------------------------------------------------------- double-entry ledger --
+
+enum AccountType {
+  USER_AVAILABLE   // spendable balance
+  USER_PENDING     // sold, not yet released (escrow on the seller side)
+  USER_ESCROW      // buyer funds locked against an open order
+  PLATFORM_REVENUE // commission earned
+  PLATFORM_GATEWAY // the chain wallet — where USDT actually sits
+}
+
+/// One row per (user, account type). Platform accounts have userId = null.
+model LedgerAccount {
+  id         String      @id @default(cuid())
+  userId     String?
+  type       AccountType
+  currency   String      @default("USDT")
+  balance    Decimal     @default(0) @db.Decimal(18, 6)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  user       User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries    LedgerEntry[]
+
+  @@unique([userId, type, currency])
+}
+
+/// A balanced group of entries. sum(debit) must equal sum(credit).
+model LedgerTransaction {
+  id         String   @id @default(cuid())
+  reference  String   @unique
+  kind       String   // deposit | purchase | release | refund | withdrawal | fee
+  memo       String?
+  orderId    String?
+  createdAt  DateTime @default(now())
+
+  order      Order?        @relation(fields: [orderId], references: [id])
+  entries    LedgerEntry[]
+
+  @@index([kind, createdAt])
+}
+
+model LedgerEntry {
+  id             String   @id @default(cuid())
+  transactionId  String
+  accountId      String
+  direction      String   // DEBIT | CREDIT
+  amount         Decimal  @db.Decimal(18, 6)
+  createdAt      DateTime @default(now())
+
+  transaction    LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  account        LedgerAccount     @relation(fields: [accountId], references: [id])
+
+  @@index([accountId, createdAt])
+}
+
+// ------------------------------------------------------------ USDT movement --
+
+enum PaymentStatus {
+  AWAITING
+  CONFIRMING
+  CREDITED
+  REJECTED
+}
+
+model Deposit {
+  id            String        @id @default(cuid())
+  userId        String
+  amountUsdt    Decimal       @db.Decimal(18, 6)
+  network       String        @default("TRC20")
+  txHash        String?       @unique
+  fromAddress   String?
+  proofUrl      String?
+  status        PaymentStatus @default(AWAITING)
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime      @default(now())
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+enum WithdrawalStatus {
+  REQUESTED
+  APPROVED
+  SENT
+  REJECTED
+}
+
+model Withdrawal {
+  id           String           @id @default(cuid())
+  userId       String
+  amountUsdt   Decimal          @db.Decimal(18, 6)
+  network      String           @default("TRC20")
+  toAddress    String
+  txHash       String?
+  status       WithdrawalStatus @default(REQUESTED)
+  note         String?
+  createdAt    DateTime         @default(now())
+  processedAt  DateTime?
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  target    String?
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  actor     User?    @relation(fields: [actorId], references: [id])
+
+  @@index([action, createdAt])
+}

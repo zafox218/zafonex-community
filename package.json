@@ -1,0 +1,21 @@
+{
+  "name": "zafonex-community",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ZAFONEX Community — digital marketplace, freelance services and online courses, settled in USDT.",
+  "workspaces": ["apps/api", "apps/web"],
+  "engines": { "node": ">=20.0.0", "npm": ">=10.0.0" },
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/api & npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/web",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run prisma:migrate --workspace=apps/api",
+    "db:seed": "npm run prisma:seed --workspace=apps/api",
+    "db:studio": "npm run prisma:studio --workspace=apps/api",
+    "db:reset": "npm run prisma:reset --workspace=apps/api",
+    "lint": "eslint . --ext .js,.jsx"
+  }
+}

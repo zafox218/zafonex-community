@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: zafonex_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zafonex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zafonex_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-zafonex}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - zafonex_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zafonex} -d ${POSTGRES_DB:-zafonex}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:latest
+    container_name: zafonex_adminer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+
+volumes:
+  zafonex_pgdata:
