@@ -1,10 +1,12 @@
-import { PrismaClient } from '@prisma/client';
-import { isProd } from '../config/env.js';
+// Prisma client for serverless (Vercel)
+const { PrismaClient } = require('@prisma/client');
 
 const globalForPrisma = globalThis;
 
-export const prisma =
-  globalForPrisma.__zafonexPrisma ??
-  new PrismaClient({ log: isProd ? ['error'] : ['warn', 'error'] });
+const prisma = globalForPrisma.prisma || new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
 
-if (!isProd) globalForPrisma.__zafonexPrisma = prisma;
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+module.exports = { prisma };

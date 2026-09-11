@@ -9,7 +9,7 @@
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspaces",
-    "vercel-build": "npm run build --workspace=apps/web",
+    "vercel-build": "npm run vercel-build-api && npm run build --workspace=apps/web",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:migrate": "npm run prisma:migrate --workspace=apps/api",
@@ -19,7 +19,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "node prisma/seed.js",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "vercel-build-api": "node apps/api/vercel-build.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
