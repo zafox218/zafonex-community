@@ -1,15 +1,15 @@
-const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const pinoHttp = require('pino-http');
-const { z } = require('zod');
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import pinoHttp from 'pino-http';
+import { z } from 'zod';
 
-const { env } = require('./config/env');
-const { logger } = require('./lib/logger');
-const { errorHandler } = require('./middleware/error');
-const { globalLimiter } = require('./middleware/rateLimit');
-const router = require('./routes');
+import { env } from './config/env.js';
+import { logger } from './lib/logger.js';
+import { errorHandler } from './middleware/error.js';
+import { globalLimiter } from './middleware/rateLimit.js';
+import router from './routes.js';
 
 const app = express();
 
@@ -53,4 +53,4 @@ app.use('/api/v1', router);
 // Error handler
 app.use(errorHandler);
 
-module.exports = app;
+export default app;
