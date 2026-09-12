@@ -8,12 +8,14 @@ const __dirname = path.dirname(__filename);
 
 console.log('Building API for Vercel...');
 
-// Run Prisma generate
+// Prisma generate needs a DATABASE_URL, use a placeholder for build
+const buildDbUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres?schema=public';
+
 try {
   execSync('npx prisma generate', { 
     cwd: __dirname, 
     stdio: 'inherit',
-    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL }
+    env: { ...process.env, DATABASE_URL: buildDbUrl }
   });
   console.log('Prisma client generated');
 } catch (e) {

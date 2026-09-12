@@ -22,9 +22,10 @@ app.use(helmet({
   contentSecurityPolicy: false,
 }));
 
-// CORS
+// CORS - handle missing WEB_ORIGIN gracefully
+const corsOrigin = env.WEB_ORIGIN || '*';
 app.use(cors({
-  origin: env.WEB_ORIGIN,
+  origin: corsOrigin,
   credentials: true,
 }));
 
@@ -32,6 +33,11 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Health check - before logging/rate limiting to ensure it always works
+app.get('/health', (req, res) => {
+  res.json({ ok: true, timestamp: new Date().toISOString() });
+});
 
 // Logging
 app.use(pinoHttp({
@@ -41,11 +47,6 @@ app.use(pinoHttp({
 
 // Global rate limiter
 app.use(globalLimiter);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ ok: true, timestamp: new Date().toISOString() });
-});
 
 // API routes
 app.use('/api/v1', router);
