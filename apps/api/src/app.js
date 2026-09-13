@@ -9,7 +9,7 @@ import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { errorHandler } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
-import router from './routes.js';
+import { router } from './routes.js';
 
 const app = express();
 

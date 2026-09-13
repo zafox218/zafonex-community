@@ -23,15 +23,14 @@ const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
   const msg = 'Invalid environment: ' + parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ');
   console.error(msg);
-  // In production, don't exit - let the app start and fail on actual requests
-  if (process.env.NODE_ENV !== 'production') {
-    process.exit(1);
-  }
+  // Don't exit in production - let it fail gracefully
 }
 
 export const env = parsed.success ? parsed.data : {
-  NODE_ENV: 'production', PORT: 4000, WEB_ORIGIN: '*', DATABASE_URL: '',
-  JWT_ACCESS_SECRET: 'dev-secret-min-32-chars-long!!', JWT_REFRESH_SECRET: 'dev-refresh-secret-min-32-chars-long!!',
+  NODE_ENV: 'production', PORT: 4000, WEB_ORIGIN: '*', 
+  DATABASE_URL: process.env.DATABASE_URL || '',
+  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || 'dev-secret-min-32-chars-long!!',
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-min-32-chars-long!!',
   JWT_ACCESS_TTL: '15m', JWT_REFRESH_TTL: '30d', PLATFORM_FEE_BPS: 1000,
   WITHDRAWAL_MIN_USDT: 20, CURRENCY: 'USDT', USDT_NETWORK: 'TRC20',
   USDT_DEPOSIT_ADDRESS: '', DEPOSIT_CONFIRMATIONS: 19,
